@@ -67,8 +67,7 @@ export default class HttpWebClient {
     return null;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _fetcher(input: Input, options: Options): Promise<any> {
+  private _fetcher<T>(input: Input, options: Options): Promise<T> {
     let { body } = options;
     const { method, headers = {}, query, auth } = options;
 
@@ -110,13 +109,14 @@ export default class HttpWebClient {
       });
 
   private readonly _method =
-    (method: string, auth?: boolean) => (input: Input, options?: Options) =>
-      this._fetcher(input, { ...options, method, auth });
+    (method: string, auth?: boolean) =>
+    <T>(input: Input, options?: Options) =>
+      this._fetcher<T>(input, { ...options, method, auth });
 
   private readonly _methodWithBody =
     (method: string, auth?: boolean) =>
-    (input: Input, body?, options?: Options) =>
-      this._fetcher(input, { ...options, method, body, auth });
+    <T>(input: Input, body?, options?: Options) =>
+      this._fetcher<T>(input, { ...options, method, body, auth });
 
   _get = this._method("GET", true);
   get = this._method("GET");
