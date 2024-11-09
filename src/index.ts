@@ -1,42 +1,58 @@
 import qs from "qs";
 
-const CONTENT_TYPE = { "Content-Type": "application/json" };
-
 const ACCESS_TOKEN = "access";
 const REFRESH_TOKEN = "refresh";
 
-const withQuery = (query) => (query ? `?${qs.stringify(query)}` : "");
+export type Input = string | URL;
+
+interface ExtraOptions {
+  query?: object;
+  auth?: boolean;
+}
+
+export type Options = RequestInit & ExtraOptions;
 
 const isJSON = (response: Response) =>
-  response.headers?.get("content-type")?.startsWith("application/json")
+  response.headers?.get("Content-Type")?.startsWith("application/json")
     ? response.json()
     : response.text();
+
+function isValidURL(urlString: Input) {
+  try {
+    return Boolean(new URL(urlString));
+  } catch {
+    return false;
+  }
+}
 
 export default class HttpWebClient {
   /**
    * HTTP Web Client based on native browsers fetch API
-   * @param base Base URL for fetching
-   * @param refreshPath Path to the endpoint to tokens refresh
+   * @param _base Base URL for fetching (optional)
+   * @param _refreshEndpoint Endpoint to tokens refresh (optional)
    */
-  constructor(private base: string, private refreshPath?: string) {}
+  constructor(
+    private readonly _base: string = "",
+    private readonly _refreshEndpoint?: string,
+  ) {}
 
-  private accessToken: string | null = localStorage.getItem(ACCESS_TOKEN);
+  private _accessToken: string | null = localStorage.getItem(ACCESS_TOKEN);
 
-  private refreshToken: string | null = localStorage.getItem(REFRESH_TOKEN);
+  private _refreshToken: string | null = localStorage.getItem(REFRESH_TOKEN);
 
-  hasAccessToken = () => !!this.accessToken;
+  hasAccessToken = () => !!this._accessToken;
 
-  hasRefreshToken = () => !!this.refreshToken;
+  hasRefreshToken = () => !!this._refreshToken;
 
-  setAccessToken = (_accessToken: string | null) => {
-    this.accessToken = _accessToken;
-    if (_accessToken) localStorage.setItem(ACCESS_TOKEN, _accessToken);
+  setAccessToken = (accessToken: string | null) => {
+    this._accessToken = accessToken;
+    if (accessToken) localStorage.setItem(ACCESS_TOKEN, accessToken);
     else localStorage.removeItem(ACCESS_TOKEN);
   };
 
-  setRefreshToken = (_refreshToken: string | null) => {
-    this.refreshToken = _refreshToken;
-    if (_refreshToken) localStorage.setItem(REFRESH_TOKEN, _refreshToken);
+  setRefreshToken = (refreshToken: string | null) => {
+    this._refreshToken = refreshToken;
+    if (refreshToken) localStorage.setItem(REFRESH_TOKEN, refreshToken);
     else localStorage.removeItem(REFRESH_TOKEN);
   };
 
@@ -51,38 +67,37 @@ export default class HttpWebClient {
     return null;
   };
 
-  private authHeader = () =>
-    this.hasAccessToken()
-      ? { Authorization: `Bearer ${this.accessToken}` }
-      : {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _fetcher(input: Input, options: Options): Promise<any> {
+    let { body } = options;
+    const { method, headers = {}, query, auth } = options;
 
-  private fetcher = (resource: string, { method, body, query }) =>
-    fetch(this.base + resource + withQuery(query), {
-      method,
-      headers: {
-        ...CONTENT_TYPE,
-        ...this.authHeader(),
-      },
-      body: JSON.stringify(body),
-    }).then((response) => {
+    if (body && !headers["Content-Type"]) {
+      body = JSON.stringify(body);
+      headers["Content-Type"] = "application/json";
+    }
+
+    if (auth && this.hasAccessToken())
+      headers["Authorization"] = `Bearer ${this._accessToken}`;
+
+    let url = isValidURL(input) ? input : this._base + input;
+    if (query) url += `?${qs.stringify(query)}`;
+
+    return fetch(url, { method, headers, body }).then((response) => {
       if (response.ok) return isJSON(response);
-      if (response.status === 401) {
+      if (auth && response.status === 401) {
         if (this.hasAccessToken()) this.setAccessToken(null);
-        if (this.hasRefreshToken())
-          return this.refresh().then(() =>
-            this.fetcher(resource, { method, body, query }),
-          );
+        if (this._refreshEndpoint && this.hasRefreshToken())
+          return this._refresh().then(() => this._fetcher(input, options));
       }
       throw Error(response.statusText);
     });
+  }
 
-  private refresh = () =>
-    fetch(this.base + this.refreshPath, {
+  private readonly _refresh = () =>
+    fetch(this._base + this._refreshEndpoint, {
       method: "POST",
-      headers: {
-        ...CONTENT_TYPE,
-        Authorization: `Bearer ${this.refreshToken}`,
-      },
+      headers: { Authorization: `Bearer ${this._refreshToken}` },
     })
       .then((response) => {
         if (response.ok) return isJSON(response);
@@ -94,15 +109,28 @@ export default class HttpWebClient {
         if (refresh) this.setRefreshToken(refresh);
       });
 
-  get = (resource: string, options?) =>
-    this.fetcher(resource, { ...options, method: "GET" });
+  private readonly _method =
+    (method: string, auth?: boolean) => (input: Input, options?: Options) =>
+      this._fetcher(input, { ...options, method, auth });
 
-  post = (resource: string, body?, options?) =>
-    this.fetcher(resource, { ...options, method: "POST", body });
+  private readonly _methodWithBody =
+    (method: string, auth?: boolean) =>
+    (input: Input, body?, options?: Options) =>
+      this._fetcher(input, { ...options, method, body, auth });
 
-  put = (resource: string, body?, options?) =>
-    this.fetcher(resource, { ...options, method: "PUT", body });
-
-  delete = (resource: string, options?) =>
-    this.fetcher(resource, { ...options, method: "DELETE" });
+  _get = this._method("GET", true);
+  get = this._method("GET");
+  _head = this._method("HEAD", true);
+  head = this._method("HEAD");
+  _post = this._methodWithBody("POST", true);
+  post = this._methodWithBody("POST");
+  _put = this._methodWithBody("PUT", true);
+  put = this._methodWithBody("PUT");
+  _patch = this._methodWithBody("PATCH", true);
+  patch = this._methodWithBody("PATCH");
+  _delete = this._method("DELETE", true);
+  delete = this._method("DELETE");
+  options = this._method("OPTIONS");
+  connect = this._method("CONNECT");
+  trace = this._method("TRACE");
 }
