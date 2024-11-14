@@ -1,6 +1,6 @@
 {
   "name": "http-web-client",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "HTTP Web Client wrapper for fetch API",
   "author": "Juan Pablo Bulbulian",
   "email": "jpbulbulian@gmail.com",

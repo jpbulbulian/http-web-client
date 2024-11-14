@@ -1,10 +1,10 @@
 # HTTP Web Client
 
-A `Class` to wrap the `fetch` browser API.\
+A type safe `Class` to wrap the `fetch` browser API.\
 Allow to manage `access` and `refresh` tokens for authentication. Taking them from the `localStorage`.\
 Sends the private requests with the access token (the ones with the `_` example:`_get`), in case of 401 error try to refresh the access token with a request to **REFRESH_TOKEN_ENDPOINT**. The expected response from the server is `{ access }` or `{ access, refresh }` in case both tokens expired.\
-Returns `json` or `text` **data** depends on _`Content-Type`_ from server.\
-Throws an `Error` in case of `Response !== ok`.
+Returns `json`, `text`, `form-data` or `blob` **data** depends on _`Content-Type`_ from server.\
+Throws the **response body** in case of `Response.ok !== true`.
 
 ## Package.json
 
@@ -24,7 +24,11 @@ npm install
 
 ## API
 
-### HttpClient<T>
+### _class_ HttpClient<T>
+
+```typescript
+import HttpWebClient from "http-web-client";
+```
 
 #### Tokens Methods
 
@@ -63,6 +67,14 @@ If the _**Content-Type**_ field isn't set to the `headers` object, it will be se
 
 - `query`: Object with parameters, parsed with `qs` library.
 
+### _function_ isValidURL
+
+```typescript
+import { isValidURL } from "http-web-client";
+```
+
+- `isValidURL(urlString: Input): boolean`
+
 ## Usage
 
 ```typescript
@@ -79,8 +91,15 @@ httpClient.setAccessToken("xxxxx");
 // const response = await fetch("https://example.com/api/user?name=Charles", {
 //   headers: { Authorization: "Bearer xxxxx" },
 // });
-// const data = await response.json();
-const data = await httpClient._get("/user", { query: { name: "Charles" } });
+// const user = await response.json();
+try {
+  const user = await httpClient._get<User>("/user", {
+    query: { name: "Charles" },
+  });
+} catch (error) {
+  // in case response.ok !== true
+  toast.error(error.message);
+}
 
 // const response = await fetch("https://example.com/api/user", {
 //   method: "POST",
@@ -91,7 +110,7 @@ const data = await httpClient._get("/user", { query: { name: "Charles" } });
 //   body: JSON.stringify({ name: "Alex" }),
 // });
 // const data = await response.json();
-const data = await httpClient._post("/user", { name: "Alex" });
+const data = await httpClient._post<User>("/user", { name: "Alex" });
 
 // const response = fetch("https://example.com/api/avatar", {
 //    method: "PUT",
@@ -99,10 +118,12 @@ const data = await httpClient._post("/user", { name: "Alex" });
 //    body: file,
 //  });
 // const result = await response.json();
-const result = await httpClient._put("/avatar", file);
+const result = await httpClient._put<boolean>("/avatar", file);
 
 // If the input is a valid URL the BASE_URL it's omitted
-const pokemon = await httpClient.get("https://pokeapi.co/api/v2/pokemon/ditto");
+const pokemon = await httpClient.get<Pokemon>(
+  "https://pokeapi.co/api/v2/pokemon/ditto",
+);
 ```
 
 ## License

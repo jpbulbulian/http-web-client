@@ -12,12 +12,15 @@ interface ExtraOptions {
 
 export type Options = RequestInit & ExtraOptions;
 
-const isJSON = (response: Response) =>
-  response.headers?.get("Content-Type")?.startsWith("application/json")
-    ? response.json()
-    : response.text();
+function responseType(response: Response) {
+  const type = response.headers.get("Content-Type");
+  if (type?.includes("json")) return response.json();
+  if (type?.includes("text")) return response.text();
+  if (type?.includes("form-data")) return response.formData();
+  return response.blob();
+}
 
-function isValidURL(urlString: Input) {
+export function isValidURL(urlString: Input) {
   try {
     return Boolean(new URL(urlString));
   } catch {
@@ -40,9 +43,9 @@ export default class HttpWebClient {
 
   private _refreshToken: string | null = localStorage.getItem(REFRESH_TOKEN);
 
-  hasAccessToken = () => !!this._accessToken;
+  hasAccessToken = () => Boolean(this._accessToken);
 
-  hasRefreshToken = () => !!this._refreshToken;
+  hasRefreshToken = () => Boolean(this._refreshToken);
 
   setAccessToken = (accessToken: string | null) => {
     this._accessToken = accessToken;
@@ -82,14 +85,14 @@ export default class HttpWebClient {
     let url = isValidURL(input) ? input : this._base + input;
     if (query) url += `?${qs.stringify(query)}`;
 
-    return fetch(url, { method, headers, body }).then((response) => {
-      if (response.ok) return isJSON(response);
+    return fetch(url, { method, headers, body }).then(async (response) => {
+      if (response.ok) return responseType(response);
       if (auth && response.status === 401) {
         if (this.hasAccessToken()) this.setAccessToken(null);
         if (this._refreshEndpoint && this.hasRefreshToken())
           return this._refresh().then(() => this._fetcher(input, options));
       }
-      throw Error(response.statusText);
+      throw await responseType(response);
     });
   }
 
@@ -98,10 +101,10 @@ export default class HttpWebClient {
       method: "POST",
       headers: { Authorization: `Bearer ${this._refreshToken}` },
     })
-      .then((response) => {
-        if (response.ok) return isJSON(response);
+      .then(async (response) => {
+        if (response.ok) return responseType(response);
         if (response.status === 401) this.removeTokens();
-        throw Error(response.statusText);
+        throw await responseType(response);
       })
       .then(({ access, refresh }) => {
         this.setAccessToken(access);

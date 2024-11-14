@@ -3,12 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isValidURL = isValidURL;
 const qs_1 = __importDefault(require("qs"));
 const ACCESS_TOKEN = "access";
 const REFRESH_TOKEN = "refresh";
-const isJSON = (response) => response.headers?.get("Content-Type")?.startsWith("application/json")
-    ? response.json()
-    : response.text();
+function responseType(response) {
+    const type = response.headers.get("Content-Type");
+    if (type?.includes("json"))
+        return response.json();
+    if (type?.includes("text"))
+        return response.text();
+    if (type?.includes("form-data"))
+        return response.formData();
+    return response.blob();
+}
 function isValidURL(urlString) {
     try {
         return Boolean(new URL(urlString));
@@ -28,8 +36,8 @@ class HttpWebClient {
         this._refreshEndpoint = _refreshEndpoint;
         this._accessToken = localStorage.getItem(ACCESS_TOKEN);
         this._refreshToken = localStorage.getItem(REFRESH_TOKEN);
-        this.hasAccessToken = () => !!this._accessToken;
-        this.hasRefreshToken = () => !!this._refreshToken;
+        this.hasAccessToken = () => Boolean(this._accessToken);
+        this.hasRefreshToken = () => Boolean(this._refreshToken);
         this.setAccessToken = (accessToken) => {
             this._accessToken = accessToken;
             if (accessToken)
@@ -57,12 +65,12 @@ class HttpWebClient {
             method: "POST",
             headers: { Authorization: `Bearer ${this._refreshToken}` },
         })
-            .then((response) => {
+            .then(async (response) => {
             if (response.ok)
-                return isJSON(response);
+                return responseType(response);
             if (response.status === 401)
                 this.removeTokens();
-            throw Error(response.statusText);
+            throw await responseType(response);
         })
             .then(({ access, refresh }) => {
             this.setAccessToken(access);
@@ -87,7 +95,6 @@ class HttpWebClient {
         this.connect = this._method("CONNECT");
         this.trace = this._method("TRACE");
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     _fetcher(input, options) {
         let { body } = options;
         const { method, headers = {}, query, auth } = options;
@@ -100,16 +107,16 @@ class HttpWebClient {
         let url = isValidURL(input) ? input : this._base + input;
         if (query)
             url += `?${qs_1.default.stringify(query)}`;
-        return fetch(url, { method, headers, body }).then((response) => {
+        return fetch(url, { method, headers, body }).then(async (response) => {
             if (response.ok)
-                return isJSON(response);
+                return responseType(response);
             if (auth && response.status === 401) {
                 if (this.hasAccessToken())
                     this.setAccessToken(null);
                 if (this._refreshEndpoint && this.hasRefreshToken())
                     return this._refresh().then(() => this._fetcher(input, options));
             }
-            throw Error(response.statusText);
+            throw await responseType(response);
         });
     }
 }

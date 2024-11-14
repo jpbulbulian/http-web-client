@@ -4,6 +4,7 @@ interface ExtraOptions {
     auth?: boolean;
 }
 export type Options = RequestInit & ExtraOptions;
+export declare function isValidURL(urlString: Input): boolean;
 export default class HttpWebClient {
     private readonly _base;
     private readonly _refreshEndpoint?;
@@ -28,20 +29,20 @@ export default class HttpWebClient {
     private readonly _refresh;
     private readonly _method;
     private readonly _methodWithBody;
-    _get: (input: Input, options?: Options) => Promise<any>;
-    get: (input: Input, options?: Options) => Promise<any>;
-    _head: (input: Input, options?: Options) => Promise<any>;
-    head: (input: Input, options?: Options) => Promise<any>;
-    _post: (input: Input, body?: any, options?: Options) => Promise<any>;
-    post: (input: Input, body?: any, options?: Options) => Promise<any>;
-    _put: (input: Input, body?: any, options?: Options) => Promise<any>;
-    put: (input: Input, body?: any, options?: Options) => Promise<any>;
-    _patch: (input: Input, body?: any, options?: Options) => Promise<any>;
-    patch: (input: Input, body?: any, options?: Options) => Promise<any>;
-    _delete: (input: Input, options?: Options) => Promise<any>;
-    delete: (input: Input, options?: Options) => Promise<any>;
-    options: (input: Input, options?: Options) => Promise<any>;
-    connect: (input: Input, options?: Options) => Promise<any>;
-    trace: (input: Input, options?: Options) => Promise<any>;
+    _get: <T>(input: Input, options?: Options) => Promise<T>;
+    get: <T>(input: Input, options?: Options) => Promise<T>;
+    _head: <T>(input: Input, options?: Options) => Promise<T>;
+    head: <T>(input: Input, options?: Options) => Promise<T>;
+    _post: <T>(input: Input, body?: any, options?: Options) => Promise<T>;
+    post: <T>(input: Input, body?: any, options?: Options) => Promise<T>;
+    _put: <T>(input: Input, body?: any, options?: Options) => Promise<T>;
+    put: <T>(input: Input, body?: any, options?: Options) => Promise<T>;
+    _patch: <T>(input: Input, body?: any, options?: Options) => Promise<T>;
+    patch: <T>(input: Input, body?: any, options?: Options) => Promise<T>;
+    _delete: <T>(input: Input, options?: Options) => Promise<T>;
+    delete: <T>(input: Input, options?: Options) => Promise<T>;
+    options: <T>(input: Input, options?: Options) => Promise<T>;
+    connect: <T>(input: Input, options?: Options) => Promise<T>;
+    trace: <T>(input: Input, options?: Options) => Promise<T>;
 }
 export {};
